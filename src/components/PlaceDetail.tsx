@@ -1,9 +1,12 @@
 import { X, Star, Phone, Globe, Mail, MapPin, ExternalLink } from 'lucide-react'
 import type { Place } from '../lib/supabase'
+import type { User } from '../lib/auth'
+import { NotesPanel } from './NotesPanel'
 
 interface PlaceDetailProps {
   place: Place
   onClose: () => void
+  user: User | null
 }
 
 const luokkaColors: Record<string, string> = {
@@ -14,7 +17,7 @@ const luokkaColors: Record<string, string> = {
   E: 'bg-red-100 text-red-800 border-red-300',
 }
 
-export function PlaceDetail({ place, onClose }: PlaceDetailProps) {
+export function PlaceDetail({ place, onClose, user }: PlaceDetailProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -92,6 +95,11 @@ export function PlaceDetail({ place, onClose }: PlaceDetailProps) {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Notes */}
+          {user && (
+            <NotesPanel cid={place.cid} user={user} />
           )}
 
           {/* Contact Info */}

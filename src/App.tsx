@@ -1,19 +1,48 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase, type Place } from './lib/supabase'
+import { getCurrentUser, signOut, type User } from './lib/auth'
 import { SearchBar } from './components/SearchBar'
 import { Filters } from './components/Filters'
 import { PlaceCard } from './components/PlaceCard'
 import { PlaceDetail } from './components/PlaceDetail'
 import { Stats } from './components/Stats'
-import { Loader2 } from 'lucide-react'
+import { LoginPage } from './components/LoginPage'
+import { AdminPanel } from './components/AdminPanel'
+import { Loader2, LogOut, Settings } from 'lucide-react'
 
 function App() {
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [places, setPlaces] = useState<Place[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [maakunta, setMaakunta] = useState('')
   const [luokka, setLuokka] = useState('')
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [showAdmin, setShowAdmin] = useState(false)
+
+  // Check auth status on mount
+  useEffect(() => {
+    async function checkAuth() {
+      const user = await getCurrentUser()
+      setUser(user)
+      setAuthLoading(false)
+    }
+
+    checkAuth()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const user = await getCurrentUser()
+        setUser(user)
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   // Fetch all places on mount
   useEffect(() => {
@@ -89,6 +118,25 @@ function App() {
     return { totalPlaces, avgScore, avgRating, withEmail }
   }, [filteredPlaces])
 
+  const handleSignOut = async () => {
+    await signOut()
+    setUser(null)
+  }
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    )
+  }
+
+  // Show login if not authenticated
+  if (!user) {
+    return <LoginPage />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -109,6 +157,25 @@ function App() {
                 <span className="text-orange-500">Paras</span>autohuolto.fi
               </h1>
               <p className="text-sm text-gray-500">Autokorjaamoiden ParasX-indeksi</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">{user.email}</span>
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => setShowAdmin(true)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                  title="Hallintapaneeli"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
+              )}
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                title="Kirjaudu ulos"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
@@ -171,7 +238,16 @@ function App() {
 
       {/* Detail Modal */}
       {selectedPlace && (
-        <PlaceDetail place={selectedPlace} onClose={() => setSelectedPlace(null)} />
+        <PlaceDetail
+          place={selectedPlace}
+          onClose={() => setSelectedPlace(null)}
+          user={user}
+        />
+      )}
+
+      {/* Admin Panel */}
+      {showAdmin && (
+        <AdminPanel onClose={() => setShowAdmin(false)} />
       )}
     </div>
   )
