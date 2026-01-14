@@ -21,6 +21,12 @@ function App() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [showAdmin, setShowAdmin] = useState(false)
 
+  // Get invite token from URL
+  const inviteToken = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('invite')
+  }, [])
+
   // Check auth status on mount
   useEffect(() => {
     async function checkAuth() {
@@ -134,7 +140,7 @@ function App() {
 
   // Show login if not authenticated
   if (!user) {
-    return <LoginPage />
+    return <LoginPage inviteToken={inviteToken} />
   }
 
   if (loading) {

@@ -41,18 +41,44 @@ export async function getCurrentUser(): Promise<User | null> {
     .single()
 
   if (!appUser) {
-    // First time user - check if first user (becomes admin)
-    const { count } = await supabase
-      .from('app_users')
-      .select('*', { count: 'exact', head: true })
+    // Check if user has a valid invitation
+    const { data: invitation } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('email', user.email)
+      .is('used_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .single()
 
-    const role = count === 0 ? 'admin' : 'viewer'
+    let role: 'admin' | 'editor' | 'viewer' = 'viewer'
+
+    if (invitation) {
+      // Use role from invitation
+      role = invitation.role as 'admin' | 'editor' | 'viewer'
+
+      // Mark invitation as used
+      await supabase
+        .from('invitations')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', invitation.id)
+    } else {
+      // First time user - check if first user (becomes admin)
+      const { count } = await supabase
+        .from('app_users')
+        .select('*', { count: 'exact', head: true })
+
+      if (count === 0) {
+        role = 'admin'
+      }
+    }
 
     // Create app_user record
     await supabase.from('app_users').insert({
       id: user.id,
       email: user.email,
       role,
+      invited_by: invitation?.invited_by || null,
+      invited_at: invitation ? new Date().toISOString() : null,
     })
 
     return {
